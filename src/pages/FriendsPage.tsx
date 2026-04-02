@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, UserCheck, MessageCircle, MapPin, Baby, X } from 'lucide-react';
+import { Search, UserPlus, MessageCircle, MapPin, Baby, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 interface FriendData {
@@ -24,8 +25,29 @@ const allPeople: FriendData[] = [
   { id: 'f8', name: 'Дарья Попова', avatar: '👩‍🦰', week: 30, city: 'Самара', online: false },
 ];
 
+const MESSAGES_KEY = 'mamahub_messages';
+
+function ensureConversation(friendId: string, friendName: string, friendAvatar: string) {
+  try {
+    const stored = localStorage.getItem(MESSAGES_KEY);
+    const convs = stored ? JSON.parse(stored) : [];
+    const exists = convs.find((c: any) => c.id === friendId);
+    if (!exists) {
+      convs.unshift({
+        id: friendId,
+        name: friendName,
+        avatar: friendAvatar,
+        online: true,
+        messages: [{ id: 'auto-' + Date.now(), senderId: friendId, text: 'Привет! Рада знакомству!', timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) }],
+      });
+      localStorage.setItem(MESSAGES_KEY, JSON.stringify(convs));
+    }
+  } catch { /* ignore */ }
+}
+
 const FriendsPage = () => {
   const { user, addFriend, removeFriend } = useAuth();
+  const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<'all' | 'my' | 'find'>('all');
 
@@ -40,6 +62,11 @@ const FriendsPage = () => {
 
   const isFriend = (id: string) => myFriendIds.includes(id);
 
+  const openChat = (friend: FriendData) => {
+    ensureConversation(friend.id, friend.name, friend.avatar);
+    navigate('/messages');
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -51,13 +78,13 @@ const FriendsPage = () => {
         <input type="text" placeholder="Поиск..." value={q} onChange={e => setQ(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-2xl bg-card border border-border/50 text-sm outline-none" />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide">
         {[
           { key: 'all' as const, label: 'Все' },
           { key: 'my' as const, label: `Мои друзья (${myFriends.length})` },
           { key: 'find' as const, label: 'Найти друзей' },
         ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className={`px-4 py-2 rounded-xl text-sm font-medium ${tab === t.key ? 'bg-primary text-primary-foreground' : 'bg-card border border-border/50 text-muted-foreground'}`}>
+          <button key={t.key} onClick={() => setTab(t.key)} className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium ${tab === t.key ? 'bg-primary text-primary-foreground' : 'bg-card border border-border/50 text-muted-foreground'}`}>
             {t.label}
           </button>
         ))}
@@ -82,8 +109,12 @@ const FriendsPage = () => {
             <div className="flex items-center gap-1 shrink-0">
               {isFriend(f.id) ? (
                 <>
-                  <button className="p-2 rounded-xl hover:bg-muted"><MessageCircle className="w-5 h-5 text-primary" /></button>
-                  <button onClick={() => removeFriend(f.id)} className="p-2 rounded-xl hover:bg-destructive/10" title="Удалить из друзей"><X className="w-5 h-5 text-destructive" /></button>
+                  <button onClick={() => openChat(f)} className="p-2 rounded-xl hover:bg-muted" title="Написать">
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                  </button>
+                  <button onClick={() => removeFriend(f.id)} className="p-2 rounded-xl hover:bg-destructive/10" title="Удалить из друзей">
+                    <X className="w-5 h-5 text-destructive" />
+                  </button>
                 </>
               ) : (
                 <button onClick={() => addFriend(f.id)} className="px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5">
