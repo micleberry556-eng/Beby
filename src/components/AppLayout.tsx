@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, Music, MessageCircle, User, Settings, Menu, X, Baby, Heart, Search, Bell, Video, UserPlus, Activity, Sparkles, ShoppingBag, Download } from 'lucide-react';
+import { Home, Users, Music, MessageCircle, User, Settings, Menu, X, Baby, Heart, Search, Bell, Video, UserPlus, Activity, Sparkles, ShoppingBag, LogOut } from 'lucide-react';
 import { MusicPlayerBar } from './MusicPlayerBar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Лента' },
@@ -15,12 +16,14 @@ const navItems = [
   { path: '/tracker', icon: Activity, label: 'Трекер' },
   { path: '/horoscope', icon: Sparkles, label: 'Гороскоп' },
   { path: '/profile', icon: User, label: 'Профиль' },
-  { path: '/admin', icon: Settings, label: 'Админ' },
 ];
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
+
+  const allNav = user?.isAdmin ? [...navItems, { path: '/admin', icon: Settings, label: 'Админ' }] : navItems;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -43,8 +46,12 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </div>
           <div className="flex items-center gap-2">
             <button className="relative p-2 rounded-xl hover:bg-muted transition-colors"><Bell className="w-5 h-5 text-muted-foreground" /><span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" /></button>
-            <button className="p-2 rounded-xl hover:bg-muted transition-colors"><Heart className="w-5 h-5 text-muted-foreground" /></button>
-            <Link to="/profile" className="hidden sm:flex items-center gap-2 pl-2"><div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-sm">👩</div></Link>
+            <Link to="/profile" className="hidden sm:flex items-center gap-2 pl-2">
+              <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-sm">{user?.avatar || '👩'}</div>
+            </Link>
+            <button onClick={logout} className="p-2 rounded-xl hover:bg-muted transition-colors" title="Выйти">
+              <LogOut className="w-5 h-5 text-muted-foreground" />
+            </button>
           </div>
         </div>
       </header>
@@ -52,7 +59,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex flex-1 max-w-7xl mx-auto w-full">
         <aside className="hidden lg:flex flex-col w-56 xl:w-64 shrink-0 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto scrollbar-hide">
           <nav className="flex flex-col gap-1">
-            {navItems.map(item => {
+            {allNav.map(item => {
               const active = location.pathname === item.path;
               return (
                 <Link key={item.path} to={item.path} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${active ? 'bg-primary text-primary-foreground shadow-glow' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
@@ -62,8 +69,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             })}
           </nav>
           <div className="mt-4 p-4 rounded-2xl gradient-soft">
-            <div className="flex items-center gap-2 mb-2"><Baby className="w-5 h-5 text-primary" /><span className="font-semibold text-sm">24 неделя</span></div>
-            <p className="text-xs text-muted-foreground leading-relaxed">Малыш размером с початок кукурузы! Он уже слышит ваш голос</p>
+            <div className="flex items-center gap-2 mb-2"><Baby className="w-5 h-5 text-primary" /><span className="font-semibold text-sm">{user?.week || '?'} неделя</span></div>
+            <p className="text-xs text-muted-foreground leading-relaxed">{user?.name || 'Пользователь'}</p>
           </div>
         </aside>
 
@@ -73,7 +80,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
               <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed left-0 top-14 bottom-0 w-72 bg-card z-50 p-4 shadow-lg lg:hidden overflow-y-auto">
                 <nav className="flex flex-col gap-1">
-                  {navItems.map(item => {
+                  {allNav.map(item => {
                     const active = location.pathname === item.path;
                     return (<Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}><item.icon className="w-5 h-5" /><span>{item.label}</span></Link>);
                   })}
@@ -90,7 +97,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/90 backdrop-blur-xl border-t border-border lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around h-14">
-          {navItems.slice(0, 5).map(item => {
+          {allNav.slice(0, 5).map(item => {
             const active = location.pathname === item.path;
             return (<Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${active ? 'text-primary' : 'text-muted-foreground'}`}><item.icon className="w-5 h-5" /><span className="text-[10px] font-medium">{item.label}</span></Link>);
           })}
