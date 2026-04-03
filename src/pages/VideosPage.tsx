@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Bookmark, Plus, Upload, X, Video, Send } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, Plus, Upload, X, Video, Send, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -22,7 +22,8 @@ interface VideoData {
   comments: VideoComment[];
   emoji: string;
   gradient: string;
-  videoDataUrl?: string;
+  videoDataUrl?: string;      // dataURL for small files (persists in localStorage)
+  videoBlobUrl?: string;      // blob URL for large files (session only)
   thumbnailDataUrl?: string;
 }
 
@@ -44,11 +45,58 @@ function getStoredVideos(): VideoData[] {
 }
 
 function saveVideos(videos: VideoData[]) {
-  localStorage.setItem(VIDEOS_KEY, JSON.stringify(videos));
+  // Strip blob URLs before saving (they don't persist)
+  const toSave = videos.map(v => {
+    const { videoBlobUrl, ...rest } = v;
+    return rest;
+  });
+  localStorage.setItem(VIDEOS_KEY, JSON.stringify(toSave));
 }
 
 const fmt = (n: number) => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
 const gradients = ['from-violet-600 via-purple-500 to-fuchsia-500', 'from-rose-500 via-pink-500 to-red-400', 'from-emerald-500 via-teal-500 to-cyan-500', 'from-amber-500 via-orange-500 to-yellow-500', 'from-sky-500 via-blue-500 to-indigo-500'];
+
+const VideoPlayer = ({ src }: { src: string }) => {
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().then(() => setPlaying(true)).catch(() => {});
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black">
+      <video
+        ref={videoRef}
+        src={src}
+        className="w-full h-full object-contain"
+        playsInline
+        onClick={togglePlay}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        controls
+      />
+      {!playing && (
+        <button
+          onClick={togglePlay}
+          className="absolute inset-0 flex items-center justify-center bg-black/20 z-10"
+        >
+          <div className="w-16 h-16 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
+            <Play className="w-8 h-8 text-white ml-1" />
+          </div>
+        </button>
+      )}
+    </div>
+  );
+};
 
 const VideosPage = () => {
   const { user } = useAuth();
@@ -57,6 +105,7 @@ const VideosPage = () => {
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadVideoPreview, setUploadVideoPreview] = useState<string | null>(null);
   const [uploadVideoDataUrl, setUploadVideoDataUrl] = useState<string | null>(null);
+  const [uploadVideoBlobUrl, setUploadVideoBlobUrl] = useState<string | null>(null);
   const [uploadThumb, setUploadThumb] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [openComments, setOpenComments] = useState<string | null>(null);
@@ -67,39 +116,47 @@ const VideosPage = () => {
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Show preview immediately with blob URL
-    setUploadVideoPreview(URL.createObjectURL(file));
+
+    const blobUrl = URL.createObjectURL(file);
+    setUploadVideoPreview(blobUrl);
+    setUploadVideoBlobUrl(blobUrl);
     setUploading(true);
-    // Convert to dataURL for persistence (limit ~10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      // Too large for localStorage, keep blob URL (session only)
-      setUploadVideoDataUrl(null);
-      setUploading(false);
-    } else {
+
+    // Try to convert to dataURL for localStorage persistence
+    // For files >5MB, keep only blob URL (works in current session)
+    if (file.size <= 5 * 1024 * 1024) {
       const reader = new FileReader();
       reader.onload = (ev) => {
         if (ev.target?.result) setUploadVideoDataUrl(ev.target.result as string);
         setUploading(false);
       };
-      reader.onerror = () => setUploading(false);
+      reader.onerror = () => {
+        setUploadVideoDataUrl(null);
+        setUploading(false);
+      };
       reader.readAsDataURL(file);
+    } else {
+      // Large file -- blob URL only (session playback)
+      setUploadVideoDataUrl(null);
+      setUploading(false);
     }
-    // Auto-generate thumbnail from video
+
+    // Auto-generate thumbnail
     const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
-    video.addEventListener('loadeddata', () => {
-      video.currentTime = 1;
-    });
+    video.src = blobUrl;
+    video.muted = true;
+    video.addEventListener('loadeddata', () => { video.currentTime = 1; });
     video.addEventListener('seeked', () => {
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 240;
       canvas.getContext('2d')?.drawImage(video, 0, 0);
       try {
         const thumb = canvas.toDataURL('image/jpeg', 0.7);
-        if (!uploadThumb) setUploadThumb(thumb);
-      } catch { /* cross-origin or other error */ }
+        setUploadThumb(prev => prev || thumb);
+      } catch { /* ignore */ }
     });
+
     e.target.value = '';
   };
 
@@ -114,6 +171,8 @@ const VideosPage = () => {
 
   const publishVideo = () => {
     if (!user || !uploadDesc.trim()) return;
+    if (!uploadVideoDataUrl && !uploadVideoBlobUrl) return;
+
     const newVideo: VideoData = {
       id: 'v-' + Date.now(),
       authorId: user.id,
@@ -126,16 +185,22 @@ const VideosPage = () => {
       emoji: '🎬',
       gradient: gradients[Math.floor(Math.random() * gradients.length)],
       videoDataUrl: uploadVideoDataUrl || undefined,
+      videoBlobUrl: !uploadVideoDataUrl ? (uploadVideoBlobUrl || undefined) : undefined,
       thumbnailDataUrl: uploadThumb || undefined,
     };
     const updated = [newVideo, ...videos];
     setVideos(updated);
-    try { saveVideos(updated); } catch { /* localStorage full -- still show in session */ }
+    try { saveVideos(updated); } catch { /* localStorage full */ }
     setShowUpload(false);
     setUploadDesc('');
     setUploadVideoPreview(null);
     setUploadVideoDataUrl(null);
+    setUploadVideoBlobUrl(null);
     setUploadThumb(null);
+  };
+
+  const getVideoSrc = (v: VideoData): string | null => {
+    return v.videoDataUrl || v.videoBlobUrl || null;
   };
 
   const toggleLike = (id: string) => {
@@ -191,26 +256,31 @@ const VideosPage = () => {
               <button onClick={() => thumbRef.current?.click()} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted text-sm">
                 <Upload className="w-4 h-4" /> Своя обложка
               </button>
-              <button onClick={publishVideo} disabled={!uploadDesc.trim() || uploading} className="px-6 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-                {uploading ? 'Загрузка...' : 'Опубликовать'}
+              <button onClick={publishVideo} disabled={!uploadDesc.trim() || uploading || (!uploadVideoDataUrl && !uploadVideoBlobUrl)} className="px-6 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                {uploading ? 'Обработка...' : 'Опубликовать'}
               </button>
             </div>
             {/* Preview */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               {uploadVideoPreview && (
                 <div className="relative">
-                  <video src={uploadVideoPreview} className="w-40 h-24 rounded-lg object-cover" controls muted />
-                  <button onClick={() => { setUploadVideoPreview(null); setUploadVideoDataUrl(null); }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"><X className="w-3 h-3" /></button>
+                  <video src={uploadVideoPreview} className="w-48 h-28 rounded-lg object-contain bg-black" controls muted playsInline />
+                  <button onClick={() => { setUploadVideoPreview(null); setUploadVideoDataUrl(null); setUploadVideoBlobUrl(null); }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"><X className="w-3 h-3" /></button>
                 </div>
               )}
               {uploadThumb && (
                 <div className="relative">
-                  <img src={uploadThumb} alt="" className="w-24 h-24 rounded-lg object-cover" />
+                  <img src={uploadThumb} alt="" className="w-28 h-28 rounded-lg object-cover" />
                   <button onClick={() => setUploadThumb(null)} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"><X className="w-3 h-3" /></button>
-                  <span className="absolute bottom-1 left-1 text-[9px] bg-black/50 text-white px-1 rounded">обложка</span>
+                  <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1 rounded">обложка</span>
                 </div>
               )}
             </div>
+            {!uploadVideoDataUrl && uploadVideoBlobUrl && (
+              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                Видео большое (&gt;5МБ) -- будет доступно только в текущей сессии браузера.
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -220,26 +290,44 @@ const VideosPage = () => {
         {videos.map(v => {
           const liked = user ? v.likedBy.includes(user.id) : false;
           const commentsOpen = openComments === v.id;
+          const videoSrc = getVideoSrc(v);
+
           return (
-            <motion.div key={v.id} className="rounded-2xl overflow-hidden border border-border/50">
-              <div className={`h-64 bg-gradient-to-br ${v.gradient} flex items-center justify-center relative`}>
-                {v.videoDataUrl ? (
-                  <video src={v.videoDataUrl} className="absolute inset-0 w-full h-full object-cover" controls />
+            <div key={v.id} className="rounded-2xl overflow-hidden border border-border/50">
+              {/* Video area */}
+              <div className={`h-72 bg-gradient-to-br ${v.gradient} flex items-center justify-center relative`}>
+                {videoSrc ? (
+                  <VideoPlayer src={videoSrc} />
                 ) : v.thumbnailDataUrl ? (
                   <img src={v.thumbnailDataUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <span className="text-7xl">{v.emoji}</span>
                 )}
-                <div className="absolute bottom-3 left-3 right-3 z-10 pointer-events-none">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-lg">{v.authorAvatar}</div>
-                    <span className="text-white text-sm font-bold drop-shadow">{v.authorName}</span>
+
+                {/* Author info overlay -- only show when no video playing */}
+                {!videoSrc && (
+                  <div className="absolute bottom-3 left-3 right-3 z-10 pointer-events-none">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-lg">{v.authorAvatar}</div>
+                      <span className="text-white text-sm font-bold drop-shadow">{v.authorName}</span>
+                    </div>
+                    <p className="text-white text-xs drop-shadow">{v.description}</p>
                   </div>
-                  <p className="text-white text-xs drop-shadow">{v.description}</p>
-                </div>
-                {!v.videoDataUrl && <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />}
+                )}
+                {!videoSrc && <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />}
               </div>
+
+              {/* Info bar */}
               <div className="p-3 bg-card">
+                {videoSrc && (
+                  <div className="mb-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{v.authorAvatar}</span>
+                      <span className="text-sm font-semibold">{v.authorName}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{v.description}</p>
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <button onClick={() => toggleLike(v.id)} className={`flex items-center gap-1 text-xs ${liked ? 'text-primary' : 'text-muted-foreground'}`}>
                     <Heart className={`w-4 h-4 ${liked ? 'fill-primary' : ''}`} /> {fmt(v.likes)}
@@ -283,7 +371,7 @@ const VideosPage = () => {
                   )}
                 </AnimatePresence>
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
