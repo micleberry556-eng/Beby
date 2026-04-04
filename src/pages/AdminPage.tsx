@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { themePresets, useTheme } from '@/contexts/ThemeContext';
 import { useMusicPlayer, Track } from '@/contexts/MusicPlayerContext';
-import { Settings, Palette, Users, BarChart3, FileText, Shield, ChevronRight, Globe, Music, MessageSquare, Check, Plus, Trash2, Upload, Video, Image, UserCog } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Settings, Palette, Users, BarChart3, FileText, Shield, ChevronRight, Globe, Music, MessageSquare, Check, Plus, Trash2, Upload, Video, Image, UserCog, Search, Sparkles, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 const GROUPS_KEY = 'mamahub_groups';
@@ -27,7 +27,28 @@ const AdminPage = () => {
   const { currentTheme, setTheme } = useTheme();
   const { queue, addToQueue, removeFromQueue } = useMusicPlayer();
   const [active, setActive] = useState('themes');
-  const categories = [...new Set(themePresets.map(t => t.category))];
+  const categories = useMemo(() => [...new Set(themePresets.map(t => t.category))], []);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [themeSearch, setThemeSearch] = useState('');
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
+
+  const filteredThemes = useMemo(() => {
+    let themes = themePresets;
+    if (activeCategory) {
+      themes = themes.filter(t => t.category === activeCategory);
+    }
+    if (themeSearch.trim()) {
+      const q = themeSearch.toLowerCase();
+      themes = themes.filter(t => t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q));
+    }
+    return themes;
+  }, [activeCategory, themeSearch]);
+
+  const filteredCategories = useMemo(() => {
+    const cats = [...new Set(filteredThemes.map(t => t.category))];
+    return categories.filter(c => cats.includes(c));
+  }, [filteredThemes, categories]);
+
   const musicFileRef = useRef<HTMLInputElement>(null);
   const videoFileRef = useRef<HTMLInputElement>(null);
   const videoThumbRef = useRef<HTMLInputElement>(null);
@@ -224,27 +245,200 @@ const AdminPage = () => {
         <div className="lg:col-span-3 space-y-4">
           {/* THEMES */}
           {active === 'themes' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
+              {/* Header with current theme info and search */}
               <div className="bg-card rounded-2xl p-5 border border-border/50">
-                <h2 className="font-heading text-xl font-semibold mb-2">Темы оформления</h2>
-                <p className="text-sm text-muted-foreground">Текущая: <span className="text-primary font-semibold">{currentTheme.name}</span></p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <h2 className="font-heading text-xl font-semibold">Темы оформления</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Активная: <span className="text-primary font-semibold">{currentTheme.name}</span>
+                      <span className="mx-1.5 opacity-40">|</span>
+                      <span className="opacity-70">{themePresets.length} тем доступно</span>
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      value={themeSearch}
+                      onChange={e => setThemeSearch(e.target.value)}
+                      placeholder="Поиск темы..."
+                      className="pl-9 pr-4 py-2 rounded-xl bg-muted text-sm outline-none w-full sm:w-56 focus:ring-2 focus:ring-primary/30 transition-shadow"
+                    />
+                  </div>
+                </div>
               </div>
-              {categories.map(cat => (
-                <div key={cat}>
-                  <h3 className="font-semibold text-base mb-3">{cat}</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {themePresets.filter(t => t.category === cat).map(theme => {
-                      const a = currentTheme.id === theme.id;
-                      return (
-                        <motion.button key={theme.id} whileHover={{ scale: 1.03 }} onClick={() => setTheme(theme.id)} className={`relative rounded-xl p-3 border-2 text-left ${a ? 'border-primary shadow-glow' : 'border-border/50 hover:border-border'}`} style={{ background: `hsl(${theme.colors.card})` }}>
-                          {a && <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center"><Check className="w-3 h-3 text-primary-foreground" /></div>}
-                          <div className="flex gap-1.5 mb-2">
-                            <div className="w-6 h-6 rounded-full" style={{ background: `hsl(${theme.colors.primary})` }} />
-                            <div className="w-6 h-6 rounded-full" style={{ background: `hsl(${theme.colors.accent})` }} />
-                            <div className="w-6 h-6 rounded-full" style={{ background: `hsl(${theme.colors.muted})` }} />
+
+              {/* Category filter tabs */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    activeCategory === null
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  Все
+                </button>
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      activeCategory === cat
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Live preview panel */}
+              <AnimatePresence>
+                {previewThemeId && (() => {
+                  const pt = themePresets.find(t => t.id === previewThemeId);
+                  if (!pt) return null;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-2xl border-2 border-primary/30 p-5 space-y-3" style={{ background: `hsl(${pt.colors.background})` }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Eye className="w-4 h-4" style={{ color: `hsl(${pt.colors.primary})` }} />
+                            <span className="text-sm font-semibold" style={{ color: `hsl(${pt.colors.foreground})` }}>
+                              Предпросмотр: {pt.name}
+                            </span>
                           </div>
-                          <p className="text-xs font-semibold truncate" style={{ color: `hsl(${theme.colors.foreground})` }}>{theme.name}</p>
-                        </motion.button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setTheme(pt.id); setPreviewThemeId(null); toast.success(`Тема "${pt.name}" применена!`); }}
+                              className="px-3 py-1 rounded-lg text-xs font-semibold text-white"
+                              style={{ background: `hsl(${pt.colors.primary})` }}
+                            >
+                              Применить
+                            </button>
+                            <button
+                              onClick={() => setPreviewThemeId(null)}
+                              className="px-3 py-1 rounded-lg text-xs font-semibold"
+                              style={{ color: `hsl(${pt.colors.foreground})`, background: `hsl(${pt.colors.muted})` }}
+                            >
+                              Закрыть
+                            </button>
+                          </div>
+                        </div>
+                        {/* Mini app preview */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="rounded-xl p-3 space-y-2" style={{ background: `hsl(${pt.colors.card})` }}>
+                            <div className="h-2 w-3/4 rounded-full" style={{ background: `hsl(${pt.colors.primary})` }} />
+                            <div className="h-2 w-full rounded-full" style={{ background: `hsl(${pt.colors.muted})` }} />
+                            <div className="h-2 w-1/2 rounded-full" style={{ background: `hsl(${pt.colors.muted})` }} />
+                          </div>
+                          <div className="rounded-xl p-3 space-y-2" style={{ background: `hsl(${pt.colors.card})` }}>
+                            <div className="h-8 w-full rounded-lg" style={{ background: `hsl(${pt.colors.primary} / 0.15)` }} />
+                            <div className="h-2 w-2/3 rounded-full" style={{ background: `hsl(${pt.colors.accent})` }} />
+                          </div>
+                          <div className="rounded-xl p-3 flex flex-col items-center justify-center gap-2" style={{ background: `hsl(${pt.colors.card})` }}>
+                            <div className="w-8 h-8 rounded-full" style={{ background: `hsl(${pt.colors.primary})` }} />
+                            <div className="h-2 w-2/3 rounded-full" style={{ background: `hsl(${pt.colors.muted})` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+
+              {/* Theme cards by category */}
+              {filteredThemes.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground text-sm">
+                  Темы не найдены. Попробуйте другой запрос.
+                </div>
+              )}
+              {filteredCategories.map(cat => (
+                <div key={cat}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-px flex-1 bg-border/50" />
+                    <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">{cat}</h3>
+                    <span className="text-xs text-muted-foreground/60">
+                      {filteredThemes.filter(t => t.category === cat).length}
+                    </span>
+                    <div className="h-px flex-1 bg-border/50" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {filteredThemes.filter(t => t.category === cat).map(theme => {
+                      const isActive = currentTheme.id === theme.id;
+                      const isPreviewing = previewThemeId === theme.id;
+                      return (
+                        <motion.div
+                          key={theme.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <motion.button
+                            whileHover={{ scale: 1.04, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setTheme(theme.id)}
+                            className={`relative w-full rounded-2xl p-3.5 border-2 text-left transition-shadow ${
+                              isActive
+                                ? 'border-primary shadow-glow ring-1 ring-primary/20'
+                                : isPreviewing
+                                  ? 'border-primary/40 shadow-md'
+                                  : 'border-transparent hover:border-border/60 shadow-sm hover:shadow-md'
+                            }`}
+                            style={{ background: `hsl(${theme.colors.background})` }}
+                          >
+                            {/* Active badge */}
+                            {isActive && (
+                              <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                                <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                              </div>
+                            )}
+
+                            {/* Color palette strip */}
+                            <div className="flex gap-1 mb-3">
+                              <div className="flex-1 h-6 rounded-l-lg" style={{ background: `hsl(${theme.colors.primary})` }} />
+                              <div className="flex-1 h-6" style={{ background: `hsl(${theme.colors.accent})` }} />
+                              <div className="flex-1 h-6" style={{ background: `hsl(${theme.colors.card})` }} />
+                              <div className="flex-1 h-6 rounded-r-lg" style={{ background: `hsl(${theme.colors.muted})` }} />
+                            </div>
+
+                            {/* Mini UI mockup */}
+                            <div className="rounded-lg p-2 mb-2.5 space-y-1.5" style={{ background: `hsl(${theme.colors.card})` }}>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 rounded-full" style={{ background: `hsl(${theme.colors.primary})` }} />
+                                <div className="h-1.5 flex-1 rounded-full" style={{ background: `hsl(${theme.colors.muted})` }} />
+                              </div>
+                              <div className="h-1.5 w-3/4 rounded-full" style={{ background: `hsl(${theme.colors.muted})` }} />
+                            </div>
+
+                            {/* Theme name */}
+                            <p className="text-xs font-bold truncate" style={{ color: `hsl(${theme.colors.foreground})` }}>
+                              {theme.name}
+                            </p>
+
+                            {/* Preview button */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setPreviewThemeId(isPreviewing ? null : theme.id); }}
+                              className="absolute bottom-2.5 right-2.5 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                              style={{ background: `hsl(${theme.colors.muted})` }}
+                              title="Предпросмотр"
+                            >
+                              <Eye className="w-3 h-3" style={{ color: `hsl(${theme.colors.foreground})` }} />
+                            </button>
+                          </motion.button>
+                        </motion.div>
                       );
                     })}
                   </div>
