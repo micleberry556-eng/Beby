@@ -5,9 +5,15 @@ export interface UserProfile {
   name: string;
   email: string;
   avatar: string;
+  /** Base64 data-URL or remote URL for the user's profile photo */
+  photo?: string;
   week?: number;
   city?: string;
   status?: string;
+  bio?: string;
+  birthday?: string;
+  phone?: string;
+  interests?: string[];
   isAdmin: boolean;
   friends: string[];
   createdAt: string;

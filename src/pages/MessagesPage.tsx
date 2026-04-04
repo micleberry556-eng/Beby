@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Send, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import UserAvatar from '@/components/UserAvatar';
 
 interface Message {
   id: string;
@@ -107,10 +108,7 @@ const MessagesPage = () => {
             const lastMsg = c.messages[c.messages.length - 1];
             return (
               <div key={c.id} onClick={() => setSelected(origIdx)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer ${selected === origIdx ? 'bg-primary/5' : 'hover:bg-muted/50'}`}>
-                <div className="relative">
-                  <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center text-xl">{c.avatar}</div>
-                  {c.online && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />}
-                </div>
+                <UserAvatar name={c.name} size={44} online={c.online} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold truncate">{c.name}</span>
@@ -126,7 +124,7 @@ const MessagesPage = () => {
 
       <div className="hidden sm:flex flex-1 flex-col">
         <div className="px-4 py-3 border-b border-border/50 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-lg">{conv?.avatar}</div>
+          {conv && <UserAvatar name={conv.name} size={36} />}
           <div>
             <p className="text-sm font-semibold">{conv?.name}</p>
             <p className={`text-[10px] ${conv?.online ? 'text-green-500' : 'text-muted-foreground'}`}>{conv?.online ? 'онлайн' : 'не в сети'}</p>

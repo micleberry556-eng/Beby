@@ -4,6 +4,7 @@ import { useMusicPlayer, Track } from '@/contexts/MusicPlayerContext';
 import { Settings, Palette, Users, BarChart3, FileText, Shield, ChevronRight, Globe, Music, MessageSquare, Check, Plus, Trash2, Upload, Video, Image, UserCog, Search, Sparkles, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import UserAvatar from '@/components/UserAvatar';
 
 const GROUPS_KEY = 'mamahub_groups';
 const VIDEOS_KEY = 'mamahub_videos';
@@ -557,7 +558,7 @@ const AdminPage = () => {
                   <tbody>
                     {users.map((u: any) => (
                       <tr key={u.id} className="border-b border-border/30 hover:bg-muted/30">
-                        <td className="py-3 px-2 font-medium"><span className="mr-2">{u.avatar}</span>{u.name}</td>
+                        <td className="py-3 px-2 font-medium"><span className="inline-flex items-center gap-2"><UserAvatar name={u.name || 'U'} size={28} />{u.name}</span></td>
                         <td className="py-3 px-2 text-muted-foreground">{u.email}</td>
                         <td className="py-3 px-2"><span className={`text-xs px-2 py-0.5 rounded-full ${u.isAdmin ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{u.isAdmin ? 'Админ' : 'Пользователь'}</span></td>
                         <td className="py-3 px-2">{u.friends?.length || 0}</td>
