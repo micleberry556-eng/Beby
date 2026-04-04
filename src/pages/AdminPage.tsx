@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { themePresets, useTheme } from '@/contexts/ThemeContext';
+import { themePresets, designStylePresets, useTheme } from '@/contexts/ThemeContext';
 import { useMusicPlayer, Track } from '@/contexts/MusicPlayerContext';
-import { Settings, Palette, Users, BarChart3, FileText, Shield, ChevronRight, Globe, Music, MessageSquare, Check, Plus, Trash2, Upload, Video, Image, UserCog, Search, Sparkles, Eye } from 'lucide-react';
+import { Settings, Palette, Users, BarChart3, FileText, Shield, ChevronRight, Globe, Music, MessageSquare, Check, Plus, Trash2, Upload, Video, Image, UserCog, Search, Sparkles, Eye, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import UserAvatar from '@/components/UserAvatar';
@@ -16,6 +16,7 @@ function getFromStorage(key: string): any[] {
 
 const sections = [
   { id: 'themes', label: 'Темы оформления', icon: Palette },
+  { id: 'design-styles', label: 'Стили дизайна', icon: Layers },
   { id: 'music', label: 'Управление музыкой', icon: Music },
   { id: 'videos', label: 'Управление видео', icon: Video },
   { id: 'groups', label: 'Управление группами', icon: Users },
@@ -25,7 +26,7 @@ const sections = [
 ];
 
 const AdminPage = () => {
-  const { currentTheme, setTheme } = useTheme();
+  const { currentTheme, setTheme, currentDesignStyle, setDesignStyle } = useTheme();
   const { queue, addToQueue, removeFromQueue } = useMusicPlayer();
   const [active, setActive] = useState('themes');
   const categories = useMemo(() => [...new Set(themePresets.map(t => t.category))], []);
@@ -445,6 +446,104 @@ const AdminPage = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* DESIGN STYLES */}
+          {active === 'design-styles' && (
+            <div className="space-y-5">
+              {/* Header */}
+              <div className="bg-card rounded-2xl p-5 border border-border/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers className="w-5 h-5 text-primary" />
+                  <h2 className="font-heading text-xl font-semibold">Стили дизайна</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Активный: <span className="text-primary font-semibold">{currentDesignStyle.name}</span>
+                  <span className="mx-1.5 opacity-40">|</span>
+                  <span className="opacity-70">{designStylePresets.length} стилей доступно</span>
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Стиль дизайна меняет форму карточек, скругления, тени и эффекты. Работает с любой цветовой темой.
+                </p>
+              </div>
+
+              {/* Style cards grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {designStylePresets.map(style => {
+                  const isActive = currentDesignStyle.id === style.id;
+                  return (
+                    <motion.button
+                      key={style.id}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => { setDesignStyle(style.id); toast.success(`Стиль "${style.name}" применён!`); }}
+                      className={`relative text-left rounded-2xl p-5 border-2 transition-all ${
+                        isActive
+                          ? 'border-primary shadow-glow ring-1 ring-primary/20 bg-primary/5'
+                          : 'border-border/50 hover:border-border bg-card hover:shadow-md'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                          <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                        </div>
+                      )}
+
+                      {/* Style preview mini-mockup */}
+                      <div className="mb-3 p-3 rounded-xl bg-muted/40 border border-border/30">
+                        <div className="flex gap-2">
+                          {/* Simulated card shapes based on style */}
+                          <div
+                            className="flex-1 h-8 bg-primary/15"
+                            style={{
+                              borderRadius: style.id === 'brutal' || style.id === 'sharp' ? '0' :
+                                style.id === 'bubble' || style.id === 'retro' ? '1rem' :
+                                style.id === 'cyber' ? '2px' :
+                                style.id === 'editorial' ? '3px' : '0.5rem',
+                              border: style.id === 'brutal' ? '2px solid currentColor' :
+                                style.id === 'retro' ? '1.5px dashed currentColor' :
+                                style.id === 'outlined' ? '1.5px solid currentColor' :
+                                style.id === 'cyber' ? '1px solid hsl(var(--primary) / 0.5)' : 'none',
+                              boxShadow: style.id === 'neo' ? '3px 3px 6px rgba(0,0,0,0.08), -3px -3px 6px rgba(255,255,255,0.5)' :
+                                style.id === 'brutal' ? '2px 2px 0 currentColor' :
+                                style.id === 'glow' || style.id === 'cyber' ? '0 0 8px hsl(var(--primary) / 0.2)' :
+                                style.id === 'glass' || style.id === 'frosted' ? '0 4px 16px rgba(0,0,0,0.06)' :
+                                style.id === 'soft' ? '0 2px 12px rgba(0,0,0,0.04)' : 'none',
+                            }}
+                          />
+                          <div
+                            className="w-8 h-8 bg-primary/20"
+                            style={{
+                              borderRadius: style.id === 'brutal' || style.id === 'sharp' ? '0' :
+                                style.id === 'bubble' ? '50%' :
+                                style.id === 'cyber' ? '2px' :
+                                style.id === 'editorial' ? '3px' : '0.375rem',
+                            }}
+                          />
+                        </div>
+                        <div
+                          className="mt-2 h-2 w-3/4 bg-muted"
+                          style={{
+                            borderRadius: style.id === 'brutal' || style.id === 'sharp' ? '0' :
+                              style.id === 'bubble' || style.id === 'retro' ? '1rem' : '0.25rem',
+                          }}
+                        />
+                      </div>
+
+                      <h3 className="font-semibold text-sm mb-0.5">{style.name}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed mb-2">{style.description}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {style.tags.map(tag => (
+                          <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

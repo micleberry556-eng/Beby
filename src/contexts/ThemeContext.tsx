@@ -71,13 +71,92 @@ export const themePresets: ThemePreset[] = [
   { id: 'paper-ink', name: 'Бумага и чернила', category: 'Минималистичные', colors: { primary: '220 15% 30%', accent: '220 10% 45%', background: '40 15% 96%', foreground: '220 12% 12%', card: '40 12% 95%', muted: '40 8% 92%' }},
   { id: 'zen-stone', name: 'Дзен камень', category: 'Минималистичные', colors: { primary: '200 8% 42%', accent: '180 6% 50%', background: '200 6% 95%', foreground: '200 8% 12%', card: '200 5% 94%', muted: '200 4% 91%' }},
 ];
-interface ThemeContextType { currentTheme: ThemePreset; setTheme: (themeId: string) => void; }
+/**
+ * Design style presets — change the visual shape/feel of the app
+ * (radius, shadows, borders, blur, font style) independently of colors.
+ */
+export interface DesignStylePreset {
+  id: string;
+  name: string;
+  description: string;
+  cssClass: string;
+  /** Visual tags shown in the picker */
+  tags: string[];
+}
+
+export const designStylePresets: DesignStylePreset[] = [
+  { id: 'default',    name: 'Стандартный',     description: 'Сбалансированный современный стиль',          cssClass: '',            tags: ['Базовый'] },
+  { id: 'glass',      name: 'Glassmorphism',   description: 'Матовое стекло, размытие, полупрозрачность',  cssClass: 'ds-glass',    tags: ['Стекло', 'Blur'] },
+  { id: 'neo',        name: 'Neomorphism',     description: 'Мягкие выдавленные тени, без границ',         cssClass: 'ds-neo',      tags: ['Тени', '3D'] },
+  { id: 'brutal',     name: 'Brutalism',       description: 'Острые углы, толстые рамки, жирные тени',     cssClass: 'ds-brutal',   tags: ['Острый', 'Bold'] },
+  { id: 'retro',      name: 'Retro',           description: 'Пунктирные рамки, пилюли, винтажный шарм',    cssClass: 'ds-retro',    tags: ['Винтаж', 'Dashed'] },
+  { id: 'cyber',      name: 'Cyberpunk',       description: 'Неоновое свечение, острые грани, sci-fi',      cssClass: 'ds-cyber',    tags: ['Неон', 'Glow'] },
+  { id: 'bubble',     name: 'Bubble',          description: 'Супер-круглые углы, игривый и мягкий',        cssClass: 'ds-bubble',   tags: ['Круглый', 'Fun'] },
+  { id: 'editorial',  name: 'Editorial',       description: 'Журнальный стиль, элегантный и строгий',      cssClass: 'ds-editorial', tags: ['Журнал', 'Serif'] },
+  { id: 'soft',       name: 'Soft',            description: 'Воздушный, без рамок, нежные тени',           cssClass: 'ds-soft',     tags: ['Воздух', 'Нежный'] },
+  { id: 'sharp',      name: 'Sharp',           description: 'Минимальные скругления, чёткие линии',        cssClass: 'ds-sharp',    tags: ['Чёткий', 'Линии'] },
+  { id: 'glow',       name: 'Gradient Glow',   description: 'Свечение в цвет темы, мягкие ореолы',         cssClass: 'ds-glow',     tags: ['Свечение', 'Градиент'] },
+  { id: 'outlined',   name: 'Outlined',        description: 'Прозрачные карточки, только контуры',         cssClass: 'ds-outlined', tags: ['Контур', 'Wire'] },
+  { id: 'frosted',    name: 'Frosted',         description: 'Глубокое размытие, насыщенность, глубина',    cssClass: 'ds-frosted',  tags: ['Frost', 'Blur'] },
+];
+
+interface ThemeContextType {
+  currentTheme: ThemePreset;
+  setTheme: (themeId: string) => void;
+  currentDesignStyle: DesignStylePreset;
+  setDesignStyle: (styleId: string) => void;
+}
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [currentTheme, setCurrentTheme] = useState<ThemePreset>(themePresets[0]);
-  const setTheme = (themeId: string) => { const theme = themePresets.find(t => t.id === themeId); if (theme) { setCurrentTheme(theme); localStorage.setItem('mamahub-theme', themeId); } };
-  useEffect(() => { const saved = localStorage.getItem('mamahub-theme'); if (saved) { const theme = themePresets.find(t => t.id === saved); if (theme) setCurrentTheme(theme); } }, []);
-  useEffect(() => { const root = document.documentElement; const c = currentTheme.colors; root.style.setProperty('--primary', c.primary); root.style.setProperty('--background', c.background); root.style.setProperty('--foreground', c.foreground); root.style.setProperty('--card', c.card); root.style.setProperty('--muted', c.muted); root.style.setProperty('--accent', c.primary); root.style.setProperty('--ring', c.primary); }, [currentTheme]);
-  return (<ThemeContext.Provider value={{ currentTheme, setTheme }}>{children}</ThemeContext.Provider>);
+  const [currentDesignStyle, setCurrentDesignStyle] = useState<DesignStylePreset>(designStylePresets[0]);
+
+  const setTheme = (themeId: string) => {
+    const theme = themePresets.find(t => t.id === themeId);
+    if (theme) { setCurrentTheme(theme); localStorage.setItem('mamahub-theme', themeId); }
+  };
+
+  const setDesignStyle = (styleId: string) => {
+    const style = designStylePresets.find(s => s.id === styleId);
+    if (style) { setCurrentDesignStyle(style); localStorage.setItem('mamahub-design-style', styleId); }
+  };
+
+  // Restore saved theme and design style
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('mamahub-theme');
+    if (savedTheme) { const theme = themePresets.find(t => t.id === savedTheme); if (theme) setCurrentTheme(theme); }
+    const savedStyle = localStorage.getItem('mamahub-design-style');
+    if (savedStyle) { const style = designStylePresets.find(s => s.id === savedStyle); if (style) setCurrentDesignStyle(style); }
+  }, []);
+
+  // Apply color theme CSS variables
+  useEffect(() => {
+    const root = document.documentElement;
+    const c = currentTheme.colors;
+    root.style.setProperty('--primary', c.primary);
+    root.style.setProperty('--background', c.background);
+    root.style.setProperty('--foreground', c.foreground);
+    root.style.setProperty('--card', c.card);
+    root.style.setProperty('--muted', c.muted);
+    root.style.setProperty('--accent', c.primary);
+    root.style.setProperty('--ring', c.primary);
+  }, [currentTheme]);
+
+  // Apply design style CSS class on <html>
+  useEffect(() => {
+    const root = document.documentElement;
+    // Remove all ds-* classes
+    root.classList.forEach(cls => { if (cls.startsWith('ds-')) root.classList.remove(cls); });
+    // Add current style class
+    if (currentDesignStyle.cssClass) {
+      root.classList.add(currentDesignStyle.cssClass);
+    }
+  }, [currentDesignStyle]);
+
+  return (
+    <ThemeContext.Provider value={{ currentTheme, setTheme, currentDesignStyle, setDesignStyle }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 };
 export const useTheme = () => { const ctx = useContext(ThemeContext); if (!ctx) throw new Error('useTheme must be used within ThemeProvider'); return ctx; };
