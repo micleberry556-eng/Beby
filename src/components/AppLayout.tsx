@@ -4,6 +4,7 @@ import { Home, Users, Music, MessageCircle, User, Settings, Menu, X, Baby, Heart
 import { MusicPlayerBar } from './MusicPlayerBar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import UserAvatar from '@/components/UserAvatar';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Лента' },
@@ -34,7 +35,9 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <Link to="/" className="flex items-center gap-2">
-              <span className="text-2xl">🤰</span>
+              <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                <span className="text-sm font-bold text-white">M</span>
+              </div>
               <span className="font-heading text-xl font-bold text-gradient hidden sm:inline">МамаХаб</span>
             </Link>
           </div>
@@ -47,7 +50,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="flex items-center gap-2">
             <button className="relative p-2 rounded-xl hover:bg-muted transition-colors"><Bell className="w-5 h-5 text-muted-foreground" /><span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" /></button>
             <Link to="/profile" className="hidden sm:flex items-center gap-2 pl-2">
-              <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-sm">{user?.avatar || '👩'}</div>
+              <UserAvatar name={user?.name || 'U'} photo={user?.photo} size={32} />
             </Link>
             <button onClick={logout} className="p-2 rounded-xl hover:bg-muted transition-colors" title="Выйти">
               <LogOut className="w-5 h-5 text-muted-foreground" />

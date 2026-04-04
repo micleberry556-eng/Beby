@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Heart, MessageCircle, Share2, MoreHorizontal, Image, Send, Smile, X, Camera } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserAvatar from '@/components/UserAvatar';
 
 interface PostData {
   id: string;
@@ -80,7 +81,7 @@ const PostCard = ({ post, onUpdate }: { post: PostData; onUpdate: (p: PostData) 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl p-4 sm:p-5 shadow-sm border border-border/50">
       <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-lg shrink-0">{post.authorAvatar}</div>
+        <UserAvatar name={post.authorName} size={40} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{post.authorName}</span>
@@ -123,7 +124,7 @@ const PostCard = ({ post, onUpdate }: { post: PostData; onUpdate: (p: PostData) 
             <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
               {post.comments.map(c => (
                 <div key={c.id} className="flex gap-2">
-                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-sm shrink-0">{c.authorAvatar}</div>
+                  <UserAvatar name={c.authorName} size={28} />
                   <div className="flex-1 bg-muted/50 rounded-xl px-3 py-2">
                     <span className="text-xs font-semibold">{c.authorName}</span>
                     <p className="text-xs text-muted-foreground">{c.text}</p>
@@ -212,7 +213,7 @@ const FeedPage = () => {
         {/* Create Post */}
         <div className="bg-card rounded-2xl p-4 shadow-sm border border-border/50">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-lg shrink-0">{user?.avatar}</div>
+            <UserAvatar name={user?.name || 'U'} photo={user?.photo} size={40} />
             <div className="flex-1">
               <textarea
                 value={newPost}

@@ -3,6 +3,7 @@ import { Search, UserPlus, MessageCircle, MapPin, Baby, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import UserAvatar from '@/components/UserAvatar';
 
 interface FriendData {
   id: string;
@@ -94,10 +95,7 @@ const FriendsPage = () => {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Никого не найдено</p>}
         {filtered.map(f => (
           <div key={f.id} className="bg-card rounded-2xl p-4 border border-border/50 flex items-center gap-3">
-            <div className="relative shrink-0">
-              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center text-2xl">{f.avatar}</div>
-              {f.online && <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-card" />}
-            </div>
+            <UserAvatar name={f.name} size={56} online={f.online} />
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm truncate">{f.name}</h3>
               {f.status && <p className="text-xs text-muted-foreground truncate mt-0.5">{f.status}</p>}
